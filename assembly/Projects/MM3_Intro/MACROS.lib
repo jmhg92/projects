@@ -1,0 +1,512 @@
+			; Set the blinking status ON/OFF (1, 0)
+BLINKING		MACRO STTS
+			MOV	AX,1003H
+			MOV	BL,STTS
+			MOV	BH,0
+			INT 10H
+			ENDM
+;--------------------------------------------------
+			; Move pointer
+CLEAR_SCR			MACRO
+			PAINT(07H),(0000H),(184FH)
+			CURSOR_MOVE_HEX(0000H)
+			ENDM
+;--------------------------------------------------
+			; Move pointer
+CLEAR_SCR_CLR			MACRO CLR
+			PAINT(CLR),(0000H),(184FH)
+			ENDM
+
+;--------------------------------------------------
+			; Move pointer
+CURSOR_MOVE			MACRO LNDX, RNDX
+			MOV			AH,02H
+			MOV			BH,00
+			MOV			DL,LNDX 		; Row (decimal)
+			MOV			DH,RNDX 		; Column (decimal)
+			INT			10H
+			ENDM
+;--------------------------------------------------
+
+			; Move pointer with Hex value
+CURSOR_MOVE_HEX		MACRO NDX
+			MOV			AH,02H
+			MOV			BH,00
+			MOV			DX,NDX 			; RowHColumnH (rXHcXH)
+			INT			10H
+			ENDM
+;--------------------------------------------------
+			; Normal cursor
+CURSOR_NORMAL		MACRO
+			MOV			AH,01H
+			MOV			CX,0607H
+			INT			10H
+			ENDM
+;--------------------------------------------------
+
+			; Wide cursor
+CURSOR_WIDE		MACRO
+			MOV			AX,01H
+			MOV			CX,0007H
+			INT			10H
+			ENDM
+;--------------------------------------------------
+
+			; Initialize without trash data
+DAT			MACRO
+			MOV			AX,@data
+			MOV			DS,AX
+			MOV			ES,AX
+			ENDM
+;--------------------------------------------------
+
+			; Display text on screen
+DISP		MACRO NDX, MSJ
+			CURSOR_MOVE_HEX (NDX)
+			MOV			AH,09H
+			LEA			DX,MSJ			; Message as DB
+			INT			21H
+			ENDM
+;--------------------------------------------------
+
+			; Display text on screen
+DISP_CLR	MACRO CLR, NDX, MSJ
+			CURSOR_MOVE_HEX (NDX)
+			MOV			AH,09H
+			MOV			BX,CLR			; Color
+			LEA			DX,MSJ			; Message as DB
+			INT			21H
+			ENDM
+;--------------------------------------------------
+
+DISP_NUM	MACRO NDX, NUM
+			CURSOR_MOVE_HEX (NDX)
+			MOV			AX,NUM
+			CALL		MC_PRNT_NUM
+			ENDM
+;--------------------------------------------------
+
+			; End program, return to DOS
+ENDING		MACRO
+			MOUSE_DISABLE
+			SOUND_OFF
+			PAUS
+			CLEAR_SCR
+			CURSOR_MOVE_HEX (0000H)
+			MOV			AX,4C00H
+			INT			21H
+			ENDM
+			
+;--------------------------------------------------
+
+
+			; End program, return to DOS
+ENDING_NO_CLS		MACRO
+			MOV			AX,4C00H
+			INT			21H
+			ENDM
+;--------------------------------------------------
+
+			; End program, return to DOS
+ENDING_NO_PAUSE		MACRO
+			MOUSE_DISABLE
+			SOUND_OFF
+			CLEAR_SCR (07H)
+			CURSOR_MOVE_HEX (0000H)
+			MOV			AX,4C00H
+			INT			21H
+			ENDM
+;--------------------------------------------------
+
+			; End program
+ENDING_WCHAR		MACRO
+			MOV			AH,01
+			INT			21H
+			ENDM
+;--------------------------------------------------
+
+			; Close file handle
+FILE_CLOSE	MACRO FILE
+			MOV			AH,3EH
+			MOV			BX,FILE
+			INT			21H
+			ENDM
+;--------------------------------------------------
+
+			; Make file handle
+FILE_MAKE	MACRO FILE, ATTRB
+			MOV			AH,3CH 
+			LEA			DX,FILE 		; (DS:DX) File as "String"
+			MOV			CX,ATTRB 		; File attribute:
+											; 00H= Normal
+											; 01H= Read-Only
+											; 02H= Hidden
+											; 04H= System File
+											; 07H= Hidden, System File and Read-Only
+											; 16H= Archive
+			INT			21H
+			ENDM
+;--------------------------------------------------
+
+			; Keyboard input
+KEYBOARD_IN	MACRO NDX, KB
+			CURSOR_MOVE_HEX (NDX)
+			MOV			AH,0AH
+			LEA			DX,KB			; Keyboard input as LABEL
+			INT			21H
+			ENDM
+;--------------------------------------------------
+
+			; Disable the mouse
+MOUSE_DISABLE		MACRO
+			MOV			AX,0002
+			INT			33H
+			ENDM
+;--------------------------------------------------
+
+			; Enable mouse use
+MOUSE_ENABLE		MACRO
+			MOV			AX,00H
+			INT			33H
+			CMP			AL,00H			; If mouse not found
+			MOV			AX,01H
+			INT			33H
+			ENDM
+;--------------------------------------------------
+
+			; Enable mouse use at a specific position
+MOUSE_ENABLE_AT		MACRO ROW, COL
+			MOV			AX,04H			; Positions the mouse cursor
+			MOV			CX,COL			; Column (8x8)
+			MOV			DX,ROW			; Row (8x8)
+			INT			33H
+			MOV			AX,01H			; Display mouse
+			INT			33H
+			ENDM
+;--------------------------------------------------
+
+			; Get the mouse position
+MOUSE_GET_POS		MACRO
+			MOV			AX,03H
+			INT			33H
+			ENDM
+;--------------------------------------------------
+
+			; Wait for the left mouse click
+MOUSE_WAIT_LEFT		MACRO
+			CALL		MC_WAIT_LEFT_CLICK
+			MOUSE_GET_POS
+			ENDM
+;--------------------------------------------------
+
+			; Redraw screen
+PAINT		MACRO CLR, LNDX, RNDX 
+			MOV			AX,0600H
+			MOV			BH,CLR 			; Color(hex)
+			MOV			CX,LNDX 		; L.R-C (rHXcHX)
+			MOV			DX,RNDX 		; R.R-C (rHXcHX)
+			INT			10H
+			ENDM
+;--------------------------------------------------
+
+			; Redraw screen
+PAINT_SINGLE		MACRO CLR, NDX
+			MOV			AX,0600H
+			MOV			BH,CLR 			; Color(hex)
+			MOV			CX,NDX 			; L.R-C (rHXcHX)
+			MOV			DX,NDX 			; R.R-C (rHXcHX)
+			INT			10H
+			ENDM
+;--------------------------------------------------
+
+			; Redraw screen
+PAINT_WCHAR		MACRO CLR, INDX, LNGTH, CHR
+			CURSOR_MOVE_HEX (INDX)
+			PRINT_REP_CHAR (CLR),(LNGTH),(CHR)	; Paints with ASCII CHAR
+			ENDM
+;--------------------------------------------------
+
+			; Redraw screen
+PAINT_WCHAR_VERTICAL		MACRO CLR, INDXT, INDXB, LNGTH, CHR
+			MOV			AX,INDXT
+			MOV			MCVAR1,AX
+			MOV			AX,INDXB
+			MOV			MCVAR2,AX
+			MOV			AX,CLR
+			MOV			MCVAR3,AX
+			MOV			AX,LNGTH
+			MOV			MCVAR4,AX
+			MOV			AL,CHR
+			MOV			MCBAR1,AL
+			CALL		MC_PAINT_VERTICAL_CHAR
+			MOV			AX,0000H
+			ENDM
+;--------------------------------------------------
+
+			; Pause the program
+PAUS		MACRO
+			MOV			AH,10H
+			INT			16H
+			ENDM
+;--------------------------------------------------
+
+			; Pause the program
+PAUS_LOOP		MACRO DTME
+			MOV			AX,DTME
+			MOV			MCVAR2,AX
+			CALL		MC_LOOP_PAUSE
+			ENDM
+;--------------------------------------------------
+
+			; Pause the program until a certain key is pressed
+PAUS_WAIT_KEY		MACRO KY
+			MOV			AL,KY
+			MOV			MCBAR1,AL
+			CALL		MC_WAIT_KEY
+			ENDM
+;--------------------------------------------------
+
+			; Print single character
+PRINT_CHAR	MACRO CLR, NDX, CHR
+			CURSOR_MOVE_HEX (NDX)
+			MOV			AH,09H
+			MOV			AL,CHR 			; Prints ASCII character
+			MOV			BH,00H
+			MOV			BL,CLR			; Background and Text color
+			MOV			CX,01
+			INT			10H
+			ENDM
+;--------------------------------------------------
+
+			; Print and repeat character
+PRINT_REP_CHAR		MACRO CLR, REP, CHR
+			MOV			AH,09H
+			MOV			AL,CHR 			; Prints ASCII character
+			MOV			BX,CLR			; Background and Text color
+			MOV			CX,REP			; Repeats
+			INT			10H
+			ENDM
+;--------------------------------------------------
+
+			; Print and repeat blinking character
+PRINT_REP_BLINK_CHAR		MACRO CHR, REP
+			MOV			AH,09H
+			MOV			AL,CHR 			; Prints ASCII character
+			MOV			BH,00H
+			MOV			BL,0F0H			; Intermitent and Video
+			MOV			CX,REP			; Repeats
+			INT			10H
+			ENDM
+;--------------------------------------------------
+
+			; Stop sound
+SOUND_OFF		MACRO
+			IN			AL,61H			; Get current value of port 61H.
+			AND			AL,11111100B	; Forces first two bits low to turn OFF the speaker
+			OUT			61H,AL			; Copy it to port 61H of the PPI Chip to turn OFF the speaker
+			ENDM
+;--------------------------------------------------
+
+			; Stop sound for a period of time
+SOUND_OFF_LOOP		MACRO DTME
+			MOV			AX,DTME
+			MOV			MCVAR2,AX
+			SOUND_OFF	; Turn off the sound
+			CALL		MC_LOOP_PAUSE
+			ENDM
+;--------------------------------------------------
+
+			; Make endless sound
+SOUND_ON		MACRO FRQ
+			MOV			BX,FRQ			; Frequency value. Best heard between 140 (high) and 19500 (low)
+										; Formula = 1193180/FRQ (See table for notes)
+			MOV			AL,10110110B	; Binary value to initialize port 43H Timer 2
+			OUT			43H,AL			; Send it to the initializing port 43H Timer 2
+			MOV			AX,BX			; Move our Frequency value into AX
+			OUT			42H,AL			; Send Least Significant Byte (LSB) to port 42H
+			MOV			AL,AH			; Move Most Significant Byte (MSB) into AL
+			OUT			42H,AL			; Send MSB to port 42H
+			IN			AL,61H			; Get current value of port 61H
+			OR			AL,00000011B	; Forces first two bits high to turn ON the speaker
+			OUT			61H,AL			; Copy it to port 61H of the PPI Chip to turn ON the speaker
+			ENDM
+;--------------------------------------------------
+
+			; Make a timed sound
+SOUND_ON_LOOP		MACRO FRQ, DTME
+			MOV			AX,FRQ
+			MOV			MCVAR1,AX
+			MOV			AX,DTME
+			MOV			MCVAR2,AX
+			SOUND_ON (FRQ)
+			CALL		MC_LOOP_PAUSE
+			SOUND_OFF
+			ENDM
+;--------------------------------------------------
+
+			; Converts all letters to upper case
+TO_UPPER		MACRO TXT, LNGTH
+			LEA			SI,TXT
+			LEA			DI,TXT
+			MOV			MCVAR1,LNGTH
+			CALL		MC_TO_UPPER
+			ENDM
+;--------------------------------------------------
+
+			; Converts all letters to lower case
+TO_LOWER		MACRO TXT, LNGTH
+			LEA			SI,TXT
+			LEA			DI,TXT
+			MOV			MCVAR1,LNGTH
+			CALL		MC_TO_LOWER
+			ENDM
+;--------------------------------------------------
+
+			; Removes blank spaces between text
+TRIM		MACRO TXTORI, TXTDST, LNGTH
+			LEA			SI,TXTORI
+			LEA			DI,TXTDST
+			MOV			MCVAR1,LNGTH
+			CALL		MC_TRIM
+			ENDM
+;--------------------------------------------------
+;--------------------------------------------------
+;--------------------------------------------------
+			.MODEL		SMALL
+			.STACK		64
+			.DATA
+
+MCVAR1		DW			?
+MCVAR2		DW			?
+MCVAR3		DW			?
+MCVAR4		DW			?
+MCBAR1		DB			?
+MCCNT			DW			?
+;--------------------------------------------------
+			.CODE
+MC_WAIT_LEFT_CLICK		PROC		NEAR
+		LPNCLK:
+			MOV			AX,05H
+			INT			33H
+			CMP			AX,1
+			JNE			LPNCLK
+			RET
+			ENDP
+;-------------------------
+
+MC_PAINT_VERTICAL_CHAR		PROC		NEAR
+			MOV			AX,MCVAR1
+			MOV			MCCNT,AX		; INDXT
+		MCLPPVC:
+			PAINT_WCHAR (MCVAR3),(MCCNT),(MCVAR4),(MCBAR1) ; CLR, INDXT, LNGTH, CHR
+			ADD			MCCNT,0100H
+			MOV			AX,MCVAR2
+			CMP			MCCNT,AX
+			JNZ			MCLPPVC		; Loop if MCCNTR != MCVAR2 (INDXB)
+			RET
+			ENDP
+;-------------------------
+
+MC_LOOP_PAUSE		PROC		NEAR
+		MCLPP1:
+			MOV 		CX,65535
+		MCLPP2:
+			LOOP		MCLPP2
+			DEC			MCVAR2	; Time (DX). 24 = 1 sec
+			CMP			MCVAR2,0
+			JNZ			MCLPP1
+			RET
+			ENDP
+;-------------------------
+
+MC_WAIT_KEY	PROC		NEAR
+		MCLPWK:
+			IN			AL,60H
+			CMP			AL,MCBAR1
+			JNZ			MCLPWK
+			RET
+			ENDP
+;-------------------------
+
+MC_TO_UPPER	PROC		NEAR
+			CLD
+		MCTUPR:
+			LODSB
+			CMP			AL,61H
+			JB			MCTUPR2					; Si el valor esta por debajo de 61H (a)
+			CMP			AL,7AH
+			JA			MCTUPR2					; Si el valor esta arriba de 7AH (z)
+			;AND			AL,11011111B		; Haciendo un AND con el bit 5 apagado nos hace el cambio de minuscula a mayuscula
+			XOR			AL,00100000B
+			MOV			[DI],AL
+		MCTUPR2:
+			INC			DI
+			DEC			MCVAR1
+			CMP			MCVAR1,0
+			JNE			MCTUPR
+			RET
+			ENDP
+;-------------------------
+
+MC_TO_LOWER	PROC		NEAR
+			CLD
+		MCTLWR:
+			LODSB
+			CMP			AL,41H
+			JB			MCTLWR2					; Si el valor esta abajo de 41H (A)
+			CMP			AL,5AH
+			JA			MCTLWR2					; Si el valor esta arriba de 5AH (Z)
+			XOR			AL,00100000B		; Haciendo un AND con el bit 5 apagado nos hace el cambio de mayuscula a minuscula
+			MOV			[DI],AL
+		MCTLWR2:
+			INC			DI
+			DEC			MCVAR1
+			CMP			MCVAR1,0
+			JNE			MCTLWR
+			RET
+			ENDP
+;-------------------------
+
+MC_TRIM		PROC		NEAR
+			CLD
+		MCTRIM1:
+			LODSB
+			CMP			AL,32
+			JE			MCTRIM2
+			CMP			AL,13
+			JE			MCTRIM2
+			CMP			AL,09
+			JE			MCTRIM2
+			CMP			AL,10
+			JE			MCTRIM2
+			STOSB
+			JMP			MCTRIM3
+		MCTRIM2:
+			INC			DI
+		MCTRIM3:
+			DEC			MCVAR1
+			CMP			MCVAR1,0
+			JNZ			MCTRIM1
+			RET
+			ENDP
+;-------------------------
+
+MC_PRNT_NUM		PROC		NEAR
+			MOV				BX,10
+			MOV				DX,0000H
+			MOV				CX,0000H
+		MCPRNTNM:
+			MOV				DX,0000H
+			DIV				BX
+			PUSH			DX
+			INC				CX
+			CMP				AX,0
+			JNE				MCPRNTNM
+		MCPRNTNM2:
+			POP				DX
+			ADD				DX,30H
+			MOV				AH,02H
+			INT 21H
+			LOOP			MCPRNTNM2
+			RET
+			ENDP
